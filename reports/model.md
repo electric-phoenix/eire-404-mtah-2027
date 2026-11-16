@@ -1,9 +1,19 @@
 # Model: frozen configuration
 
-**Frozen:** `full` features + `hybrid` decoder (LightGBM → 4-state Viterbi with Smart Tagging
-modifiers → rule layer). Public spellF1 **0.550** [90% CI 0.42, 0.67], macroF1 0.654. Published
-floor on the same window: 0.326 [0.21, 0.45]. The intervals overlap only at their edges.
-Regenerate with `python -m pipeline`; two runs produce byte-identical files (SHA-256 `217a35e2…`).
+**Frozen (16 Nov 2026):** `full` features + `hybrid_stoppage_soft-midpoint-edges-min25-whistle`
+(v3 + referee whistle: LightGBM -> dead-ball tree and stop-whistle evidence as soft log-odds on D ->
+4-state Viterbi with Smart Tagging modifiers -> rule layer -> merge stoppages <3 s apart, drop
+untagged stoppages <2 s -> 1 s minimum spell). Public spellF1 **0.600** [90% CI 0.48, 0.71],
+macroF1 0.793. Regenerate with `python -m pipeline` (needs ffmpeg); two runs from scratch produce
+byte-identical files (SHA-256 `fea816bf…`). Whistle method: `pipeline/audio.py`,
+`pipeline/whistle.py`, reports/experiments.md rows 28-30.
+
+**Previously frozen (v3, 15-16 Nov):** `hybrid_stoppage_soft-midpoint-edges-min25`, public spellF1
+0.584 [0.43, 0.71], macroF1 0.721 (SHA-256 `9b1f1f94…`).
+
+**Previously frozen (Model v1):** `hybrid`, public spellF1 0.550 [0.42, 0.67], macroF1 0.654
+(SHA-256 `217a35e2…`). The sections below describe v1 and its ablations; the v3 additions and
+the comparison table are in reports/teammate1_handover.md and reports/experiments.md.
 
 ## Architecture
 

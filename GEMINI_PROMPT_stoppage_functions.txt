@@ -1,0 +1,57 @@
+Write one Python file, numpy only (no pandas, no other imports). Reply with ONLY a single
+```python block: no explanation before or after. You cannot run code, so check your own work
+against the examples at the bottom by hand.
+
+CONTEXT
+A football match is a 1-D numpy int8 array `path`, one value per video frame (25 frames = 1 s):
+  0 = home has the ball, 1 = away has the ball, 2 = DEAD BALL (a stoppage), 3 = unknown.
+A "stoppage" is a maximal run of consecutive 2s. A detector sometimes chops one real stoppage
+into pieces or invents tiny fake ones. Write two cleaning functions.
+
+CONSTANTS (module level)
+FPS = 25
+MERGE_GAP = 3 * FPS      # 75
+SHORT_MIN = 2 * FPS      # 50
+TAG_WINDOW = 150
+
+HELPER YOU MUST USE (copy exactly):
+def runs(mask):
+    """(starts, ends_exclusive) of the True runs in a boolean array."""
+    padded = np.r_[False, np.asarray(mask, bool), False].astype(np.int8)
+    change = np.diff(padded)
+    return np.flatnonzero(change == 1), np.flatnonzero(change == -1)
+
+FUNCTION 1
+def merge_close(path, max_gap=MERGE_GAP) -> (new_path, n_merged)
+ - Work on a copy; never modify the input.
+ - For each pair of NEIGHBOURING stoppages, if the gap between them (start of the later minus
+   end of the earlier) is 1..max_gap frames inclusive, set that gap to 2.
+ - n_merged = number of gaps filled.
+ - Compute runs ONCE from the original copy's stoppages (do not re-find runs after filling).
+
+FUNCTION 2
+def drop_short(path, tags, min_len=SHORT_MIN) -> (new_path, n_dropped)
+ - `tags` is a list of dicts like {"a": 395, "code": "set pieces", "type": "throw-in"};
+   "a" is the frame the tag starts, relative to the same array. Only tags with
+   code == "set pieces" count.
+ - Work on a copy. For each stoppage [s, e) (e exclusive):
+     SKIP it (keep it) if ANY of these is true:
+       e - s >= min_len;   s == 0;   e >= len(path);
+       some set-piece tag has  s - TAG_WINDOW <= tag["a"] <= e
+     Otherwise REMOVE it: fill path[s:e] with path[s-1] if that is 0 or 1; else with path[e]
+     if that is 0 or 1; else (neither neighbour is 0 or 1) leave it unchanged and do not count it.
+ - n_dropped = number of stoppages removed.
+ - Decide for each stoppage using the ORIGINAL runs, not ones changed by earlier removals.
+
+ALSO
+def tidy(path, tags): merge_close first, then drop_short on its result; return the final path.
+
+EXAMPLES (your code must satisfy these; n=600, "0" is the label, D=2)
+ A) p = zeros; p[100:200]=2; p[250:300]=2; p[500:560]=2
+    merge_close(p) -> n_merged == 1; p2[100:300] all 2; p2[300:500] all 0; p2[500:560] all 2.
+ B) gap of exactly 75 frames merges; a gap of 76 does not.
+ C) p = zeros; p[100:130]=2; p[400:430]=2; tags=[{"a":395,"code":"set pieces","type":"throw-in"}]
+    drop_short(p, tags) -> n_dropped == 1; p2[100:130] all 0; p2[400:430] all 2.
+ D) a stoppage of exactly 50 frames is kept; one of 49 frames with no tag is removed.
+ E) p[100:130]=2 where p[99]==1 -> the removed frames become 1.
+ F) input array is unchanged after each call.

@@ -1,6 +1,17 @@
 """Frame-level LightGBM multiclass classifier (brief Step 2).
 
     python -m pipeline.train [--drop-group tagging]
+    python -m pipeline.train --tag audio --audio                       # + sound features
+    python -m pipeline.train --tag self --labels evaluation/results/X.csv   # self-training
+
+Two optional extras (plain words):
+  --audio         add the six sound features from pipeline/audio.py (whistle and crowd loudness).
+                  Needs `python -m pipeline.audio` first. --audio-shift N rolls the sound N frames
+                  in time (placebo test only: a real gain must disappear when the timing is wrong).
+  --labels CSV    "self-training": learn from a finished labels file (e.g. our best model's
+                  output) instead of the hand-written teacher. The best model is better than the
+                  teacher, so the classifier gets better targets. The public window is still left
+                  out of training, and no answers are used: the labels are our own output.
 
 Trains on algorithmic pseudo-labels (pipeline/pseudo_labels.py) over the graded frames OUTSIDE the
 public window. Cross-validation is spell-level: GroupKFold with each pseudo-label run (a maximal
@@ -41,11 +52,23 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--drop-group", action="append", default=[])
     ap.add_argument("--tag", default="full")
+    ap.add_argument("--audio", action="store_true")
+    ap.add_argument("--audio-shift", type=int, default=0)
+    ap.add_argument("--labels")
     args = ap.parse_args()
 
     df = pd.read_parquet(os.path.join(PROC, "frame_features.parquet"))
     feats = [c for g, cols in FE.GROUPS.items() if g not in args.drop_group for c in cols]
+    if args.audio:
+        from pipeline import audio as AU
+        for k, v in AU.causal_features(shift=args.audio_shift).items():
+            df[k] = v
+        feats = feats + AU.AUDIO_FEATURES
     y_str, graded = PL.build()
+    if args.labels:
+        # Self-training: same graded frames, but the targets are our own finished labels.
+        y_str = pd.read_csv(args.labels)["label"].to_numpy().astype(str).copy()
+        y_str[~graded] = "X"
     y = pd.Series(y_str).map({c: i for i, c in enumerate(PL.CLASSES)}).to_numpy()
     groups = runs(y_str)
 
@@ -73,7 +96,8 @@ def main():
     proba = final.predict(df[feats], num_iteration=n_iter)
     np.save(os.path.join(PROC, "proba_{}.npy".format(args.tag)), proba.astype(np.float32))
     imp = pd.Series(final.feature_importance("gain"), index=feats).sort_values(ascending=False)
-    summary = {"tag": args.tag, "dropped": args.drop_group, "n_train": int(train.sum()),
+    summary = {"tag": args.tag, "dropped": args.drop_group, "audio": args.audio,
+               "audio_shift": args.audio_shift, "labels": args.labels, "n_train": int(train.sum()),
                "label_counts": {c: int((yt == i).sum()) for i, c in enumerate(PL.CLASSES)},
                "cv_logloss": fold_logloss, "cv_acc": fold_acc, "n_iter": n_iter,
                "importance_gain_top15": {k: float(v) for k, v in imp.head(15).items()}}

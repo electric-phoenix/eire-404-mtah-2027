@@ -1,15 +1,19 @@
 # STATUS — 2026-11-10 (Day 1 of 7, deadline 17 Nov 2026)
 
-**Current best (frozen): LightGBM + Viterbi + rule layer, public spellF1 0.550 [90% CI 0.42, 0.67],
-macroF1 0.654.** The published floor scores 0.326 [0.21, 0.45] on the same window (0.2433 on the
-full match). `submission.csv` passes `validate_submission.py` and regenerates byte-identically.
-**It has not been reviewed by A yet**, so it is not merged as the team submission.
+**Frozen 16 Nov 2026: `hybrid_stoppage_soft-midpoint-edges-min25-whistle` (v3 + whistle), public
+spellF1 0.600 [90% CI 0.48, 0.71], macroF1 0.793.** v3 plus the referee whistle from the tactical
+video's sound as soft dead-ball evidence. Public dead-ball recall 0.37 -> 0.56 at precision 0.95;
+whole match 289 possessions, median 10.2 s, 106 stoppages. Placebo (time-shifted whistle) loses
+the gain. `Eire404.csv` = `submission.csv`, validated, regenerates byte-identically from scratch
+(SHA-256 `fea816bf…`). Needs ffmpeg (set FFMPEG if not on PATH). Replaces v3 (0.584, `9b1f1f94…`).
+Dropped on 16 Nov (all logged in reports/experiments.md): foul restart, sound features in the
+model, self-training, kick sounds, tracking-based touch / confirmed control.
 
 ## Run
 
 ```
 python -m venv .venv && .venv/Scripts/python -m pip install -r requirements-lock.txt
-.venv/Scripts/python -m pipeline                 # raw data -> submission.csv, ~45 s
+.venv/Scripts/python -m pipeline                 # raw data -> submission.csv, ~1-2 min, needs ffmpeg
 ./scripts/make_dataset.sh                        # dataset only -> data/processed/frames.parquet
 .venv/Scripts/python scripts/board.py            # public board + full-match possession counts
 .venv/Scripts/python -m pytest -q tests          # 20 tests: fixtures + no-leakage

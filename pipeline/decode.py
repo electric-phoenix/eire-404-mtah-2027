@@ -134,6 +134,15 @@ def rule_dead_ball(path, f):
     return p
 
 
+def rule_dead_tree(path, f, disable=()):
+    """Dead-ball decision tree (pipeline/dead_tree.py) replaces the single dead-ball override.
+    f must carry "pre_kickoff", the half's before-kickoff mask."""
+    from . import dead_tree
+    p = path.copy()
+    p[dead_tree.classify(f, f["pre_kickoff"], disable) > 0] = D
+    return p
+
+
 def rule_pass_flight(path, f, reach=1.5, horizon=50):
     p = path.copy()
     fast = f["ball_speed_max_12"] > 12
@@ -182,5 +191,5 @@ def rule_contested(path, f, reach=1.5):
     return p
 
 
-RULES = {"dead_ball": rule_dead_ball, "pass_flight": rule_pass_flight,
+RULES = {"dead_ball": rule_dead_ball, "dead_tree": rule_dead_tree, "pass_flight": rule_pass_flight,
          "invisible": rule_invisible, "contested": rule_contested}
